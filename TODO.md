@@ -20,10 +20,10 @@
 ## 🟠 P1 — Important
 
 ### 3. Unit tests
-- [ ] Install `vitest` + `@vitest/coverage-v8`
-- [ ] Add `test` script to `package.json`
-- [ ] Tests for `src/services/taiga.ts` (mock `fetch`, test 200/400/401/404/500)
-- [ ] Tests for `src/formats.ts` (edge cases: nulls, empty arrays, empty strings)
+- [x] Install `vitest` + `@vitest/coverage-v8`
+- [x] Add `test` script to `package.json`
+- [x] Tests for `src/services/taiga.ts` (mock `fetch`, test 200/400/401/404/500)
+- [x] Tests for `src/formats.ts` (edge cases: nulls, empty arrays, empty strings)
 - [ ] Zod schema validation tests (valid and invalid input per tool)
 
 ### 4. API response validation
