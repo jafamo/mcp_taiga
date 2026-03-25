@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listProjects, getProject, getProjectBySlug, createProject, listMembers } from "../services/taiga.js";
 import { textResponse, errorResponse, formatProject } from "../formats.js";
+import { logger } from "../logger.js";
 
 export function registerProjectTools(server: McpServer): void {
   server.tool(
@@ -9,12 +10,14 @@ export function registerProjectTools(server: McpServer): void {
     "Lista todos los proyectos de Taiga accesibles",
     {},
     async () => {
+      logger.debug("tool invoked", { tool: "taiga_list_projects" });
       try {
         const projects = await listProjects();
         if (projects.length === 0) return textResponse("No se encontraron proyectos.");
         const lines = projects.map(formatProject).join("\n\n");
         return textResponse(`${projects.length} proyectos encontrados:\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_list_projects", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -28,6 +31,7 @@ export function registerProjectTools(server: McpServer): void {
       slug: z.string().optional().describe("Slug del proyecto"),
     },
     async ({ project_id, slug }) => {
+      logger.debug("tool invoked", { tool: "taiga_get_project", project_id, slug });
       try {
         if (!project_id && !slug) return errorResponse("Se requiere project_id o slug");
         const project = project_id
@@ -35,6 +39,7 @@ export function registerProjectTools(server: McpServer): void {
           : await getProjectBySlug(slug!);
         return textResponse(formatProject(project));
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_get_project", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -49,10 +54,12 @@ export function registerProjectTools(server: McpServer): void {
       is_private: z.boolean().optional().describe("Si el proyecto es privado (por defecto: false)"),
     },
     async ({ name, description, is_private }) => {
+      logger.debug("tool invoked", { tool: "taiga_create_project", name });
       try {
         const project = await createProject({ name, description, is_private: is_private ?? false });
         return textResponse(`Proyecto creado:\n\n${formatProject(project)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_create_project", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -65,12 +72,14 @@ export function registerProjectTools(server: McpServer): void {
       project_id: z.number().int().positive().describe("ID del proyecto"),
     },
     async ({ project_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_members", project_id });
       try {
         const members = await listMembers(project_id);
         if (members.length === 0) return textResponse("El proyecto no tiene miembros.");
         const lines = members.map((m) => `  [${m.id}] ${m.username} — ${m.full_name}`).join("\n");
         return textResponse(`${members.length} miembros:\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_list_members", error: String(error) });
         return errorResponse(error);
       }
     }

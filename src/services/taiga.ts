@@ -10,6 +10,7 @@ import type {
   TaigaSearchResult,
   TaigaUserRef,
 } from "../types.js";
+import { logger } from "../logger.js";
 
 export type { TaigaUserRef };
 
@@ -49,11 +50,17 @@ async function request<T>(
     headers["Authorization"] = `Bearer ${AUTH_TOKEN}`;
   }
 
+  const start = Date.now();
+
+  logger.debug("HTTP request", { method, url: url.toString() });
+
   const response = await fetch(url.toString(), {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  const ms = Date.now() - start;
 
   if (!response.ok) {
     let errorMessage = `Taiga API error ${response.status}`;
@@ -64,8 +71,11 @@ async function request<T>(
     } catch {
       errorMessage += `: ${response.statusText}`;
     }
+    logger.warn("HTTP error", { method, path, status: response.status, ms });
     throw new Error(errorMessage);
   }
+
+  logger.debug("HTTP response", { method, path, status: response.status, ms });
 
   if (response.status === 204) {
     return {} as T;

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listIssues, getIssue, createIssue, editIssue, deleteIssue } from "../services/taiga.js";
 import { textResponse, errorResponse, formatIssue } from "../formats.js";
+import { logger } from "../logger.js";
 
 export function registerIssueTools(server: McpServer): void {
   server.tool(
@@ -17,6 +18,7 @@ export function registerIssueTools(server: McpServer): void {
       severity: z.number().int().positive().optional().describe("Filtrar por severidad (ID)"),
     },
     async ({ project_id, milestone_id, assigned_to, status, type, priority, severity }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_issues", project_id, milestone_id });
       try {
         const issues = await listIssues({
           project: project_id,
@@ -31,6 +33,7 @@ export function registerIssueTools(server: McpServer): void {
         const lines = issues.map(formatIssue).join("\n\n");
         return textResponse(`${issues.length} issues encontrados:\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_list_issues", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -43,12 +46,14 @@ export function registerIssueTools(server: McpServer): void {
       issue_id: z.number().int().positive().describe("ID del issue"),
     },
     async ({ issue_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_get_issue", issue_id });
       try {
         const issue = await getIssue(issue_id);
         const header = formatIssue(issue);
         const desc = issue.description ? `\n\n**Descripción:**\n${issue.description}` : "";
         return textResponse(`${header}${desc}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_get_issue", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -70,6 +75,7 @@ export function registerIssueTools(server: McpServer): void {
       severity: z.number().int().positive().optional().describe("Severidad (ID)"),
     },
     async ({ project_id, subject, description, milestone_id, assigned_to, tags, status, type, priority, severity }) => {
+      logger.debug("tool invoked", { tool: "taiga_create_issue", project_id, subject });
       try {
         const issue = await createIssue({
           project: project_id,
@@ -85,6 +91,7 @@ export function registerIssueTools(server: McpServer): void {
         });
         return textResponse(`Issue creado:\n\n${formatIssue(issue)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_create_issue", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -107,6 +114,7 @@ export function registerIssueTools(server: McpServer): void {
       tags: z.array(z.string()).optional().describe("Nueva lista de tags"),
     },
     async ({ issue_id, version, subject, description, milestone_id, assigned_to, status, type, priority, severity, tags }) => {
+      logger.debug("tool invoked", { tool: "taiga_edit_issue", issue_id, version });
       try {
         const issue = await editIssue(issue_id, version, {
           ...(subject !== undefined && { subject }),
@@ -121,6 +129,7 @@ export function registerIssueTools(server: McpServer): void {
         });
         return textResponse(`Issue actualizado:\n\n${formatIssue(issue)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_edit_issue", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -133,10 +142,12 @@ export function registerIssueTools(server: McpServer): void {
       issue_id: z.number().int().positive().describe("ID del issue a eliminar"),
     },
     async ({ issue_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_delete_issue", issue_id });
       try {
         await deleteIssue(issue_id);
         return textResponse(`Issue eliminado (id: ${issue_id})`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_delete_issue", error: String(error) });
         return errorResponse(error);
       }
     }
