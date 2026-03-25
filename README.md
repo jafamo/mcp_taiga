@@ -6,19 +6,19 @@
 ![Taiga](https://img.shields.io/badge/Taiga-API_v1-4CAF50?style=flat)
 ![Zod](https://img.shields.io/badge/Zod-3E67B1?style=flat&logo=zod&logoColor=white)
 
-Servidor MCP (Model Context Protocol) para integrar Taiga con Claude y otros clientes LLM.
+MCP (Model Context Protocol) server to integrate Taiga with Claude and other LLM clients.
 
-Permite gestionar proyectos, sprints, user stories, tareas, issues, epics y wiki directamente desde el asistente.
+Manage projects, sprints, user stories, tasks, issues, epics, and wiki directly from your assistant.
 
 ---
 
-## Requisitos
+## Requirements
 
 - Node.js >= 20
-- Acceso a una instancia de Taiga (cloud o self-hosted)
-- Token de autenticación de Taiga
+- Access to a Taiga instance (cloud or self-hosted)
+- Taiga authentication token
 
-## Instalación
+## Installation
 
 ```bash
 cd taiga
@@ -26,23 +26,23 @@ npm install
 npm run build
 ```
 
-## Obtener el token de Taiga
+## Getting the Taiga token
 
 ```bash
-curl -s -X POST https://<tu-instancia>/api/v1/auth \
+curl -s -X POST https://<your-instance>/api/v1/auth \
   -H "Content-Type: application/json" \
-  -d '{"type":"normal","username":"<usuario>","password":"<contraseña>"}' \
+  -d '{"type":"normal","username":"<username>","password":"<password>"}' \
   | grep auth_token
 ```
 
-## Configuración
+## Configuration
 
-### Variables de entorno
+### Environment variables
 
-| Variable          | Descripción                                      | Ejemplo                                  |
-|-------------------|--------------------------------------------------|------------------------------------------|
-| `TAIGA_URL`       | URL base de tu instancia Taiga                   | `https://taiga.miempresa.com`            |
-| `TAIGA_AUTH_TOKEN`| Token de autenticación obtenido con el paso anterior | `eyJ0eXAiOiJKV1QiLCJhbGci...`       |
+| Variable           | Description                                        | Example                                  |
+|--------------------|----------------------------------------------------|------------------------------------------|
+| `TAIGA_URL`        | Base URL of your Taiga instance                    | `https://taiga.mycompany.com`            |
+| `TAIGA_AUTH_TOKEN` | Authentication token obtained in the previous step | `eyJ0eXAiOiJKV1QiLCJhbGci...`           |
 
 ### Claude Desktop (`~/.config/Claude/claude_desktop_config.json`)
 
@@ -51,10 +51,10 @@ curl -s -X POST https://<tu-instancia>/api/v1/auth \
   "mcpServers": {
     "taiga": {
       "command": "node",
-      "args": ["/ruta/absoluta/taiga/dist/index.js"],
+      "args": ["/absolute/path/to/taiga/dist/index.js"],
       "env": {
-        "TAIGA_URL": "https://<tu-instancia>",
-        "TAIGA_AUTH_TOKEN": "<tu-token>"
+        "TAIGA_URL": "https://<your-instance>",
+        "TAIGA_AUTH_TOKEN": "<your-token>"
       }
     }
   }
@@ -68,10 +68,10 @@ curl -s -X POST https://<tu-instancia>/api/v1/auth \
   "mcpServers": {
     "taiga": {
       "command": "node",
-      "args": ["/ruta/absoluta/taiga/dist/index.js"],
+      "args": ["/absolute/path/to/taiga/dist/index.js"],
       "env": {
-        "TAIGA_URL": "https://taiga.miempresa.com",
-        "TAIGA_AUTH_TOKEN": "tu-token-aqui"
+        "TAIGA_URL": "https://taiga.mycompany.com",
+        "TAIGA_AUTH_TOKEN": "your-token-here"
       }
     }
   }
@@ -80,90 +80,90 @@ curl -s -X POST https://<tu-instancia>/api/v1/auth \
 
 ---
 
-## Tools disponibles (31 en total)
+## Available tools (31 total)
 
-### Proyectos
-| Tool | Descripción |
+### Projects
+| Tool | Description |
 |------|-------------|
-| `taiga_list_projects` | Lista todos los proyectos |
-| `taiga_get_project` | Detalle de un proyecto por ID o slug |
-| `taiga_create_project` | Crea un proyecto nuevo |
-| `taiga_list_members` | Lista miembros de un proyecto |
+| `taiga_list_projects` | List all projects |
+| `taiga_get_project` | Project detail by ID or slug |
+| `taiga_create_project` | Create a new project |
+| `taiga_list_members` | List members of a project |
 
 ### Sprints (Milestones)
-| Tool | Descripción |
+| Tool | Description |
 |------|-------------|
-| `taiga_list_milestones` | Lista sprints de un proyecto |
-| `taiga_get_milestone` | Detalle de un sprint |
-| `taiga_create_milestone` | Crea un sprint |
+| `taiga_list_milestones` | List sprints of a project |
+| `taiga_get_milestone` | Sprint detail |
+| `taiga_create_milestone` | Create a sprint |
 
 ### User Stories
-| Tool | Descripción |
+| Tool | Description |
 |------|-------------|
-| `taiga_list_userstories` | Lista user stories con filtros |
-| `taiga_get_userstory` | Detalle de una user story |
-| `taiga_create_userstory` | Crea una user story |
-| `taiga_edit_userstory` | Edita una user story (requiere `version`) |
-| `taiga_delete_userstory` | Elimina una user story |
+| `taiga_list_userstories` | List user stories with filters |
+| `taiga_get_userstory` | User story detail |
+| `taiga_create_userstory` | Create a user story |
+| `taiga_edit_userstory` | Edit a user story (requires `version`) |
+| `taiga_delete_userstory` | Delete a user story |
 
-### Tareas
-| Tool | Descripción |
+### Tasks
+| Tool | Description |
 |------|-------------|
-| `taiga_list_tasks` | Lista tareas con filtros |
-| `taiga_get_task` | Detalle de una tarea |
-| `taiga_create_task` | Crea una tarea |
-| `taiga_edit_task` | Edita una tarea (requiere `version`) |
-| `taiga_delete_task` | Elimina una tarea |
+| `taiga_list_tasks` | List tasks with filters |
+| `taiga_get_task` | Task detail |
+| `taiga_create_task` | Create a task |
+| `taiga_edit_task` | Edit a task (requires `version`) |
+| `taiga_delete_task` | Delete a task |
 
 ### Issues
-| Tool | Descripción |
+| Tool | Description |
 |------|-------------|
-| `taiga_list_issues` | Lista issues con filtros |
-| `taiga_get_issue` | Detalle de un issue |
-| `taiga_create_issue` | Crea un issue |
-| `taiga_edit_issue` | Edita un issue (requiere `version`) |
-| `taiga_delete_issue` | Elimina un issue |
+| `taiga_list_issues` | List issues with filters |
+| `taiga_get_issue` | Issue detail |
+| `taiga_create_issue` | Create an issue |
+| `taiga_edit_issue` | Edit an issue (requires `version`) |
+| `taiga_delete_issue` | Delete an issue |
 
 ### Epics
-| Tool | Descripción |
+| Tool | Description |
 |------|-------------|
-| `taiga_list_epics` | Lista epics de un proyecto |
-| `taiga_get_epic` | Detalle de un epic |
-| `taiga_create_epic` | Crea un epic |
-| `taiga_edit_epic` | Edita un epic (requiere `version`) |
+| `taiga_list_epics` | List epics of a project |
+| `taiga_get_epic` | Epic detail |
+| `taiga_create_epic` | Create an epic |
+| `taiga_edit_epic` | Edit an epic (requires `version`) |
 
-### Wiki y Búsqueda
-| Tool | Descripción |
+### Wiki & Search
+| Tool | Description |
 |------|-------------|
-| `taiga_list_wiki_pages` | Lista páginas wiki de un proyecto |
-| `taiga_get_wiki_page` | Obtiene una página wiki por ID o slug |
-| `taiga_create_wiki_page` | Crea una página wiki |
-| `taiga_edit_wiki_page` | Edita una página wiki (requiere `version`) |
-| `taiga_search` | Búsqueda global en un proyecto |
+| `taiga_list_wiki_pages` | List wiki pages of a project |
+| `taiga_get_wiki_page` | Get a wiki page by ID or slug |
+| `taiga_create_wiki_page` | Create a wiki page |
+| `taiga_edit_wiki_page` | Edit a wiki page (requires `version`) |
+| `taiga_search` | Global search within a project |
 
 ---
 
-## Desarrollo
+## Development
 
 ```bash
-npm run dev     # Compilación en modo watch
-npm run build   # Compilación para producción
-npm start       # Arrancar el servidor compilado
+npm run dev     # Watch mode compilation
+npm run build   # Production build
+npm start       # Start the compiled server
 ```
 
-## Arquitectura
+## Architecture
 
-Ver [`SPECS.md`](./SPECS.md) para especificaciones detalladas de cada tool.
-Ver [`DECISIONS.md`](./DECISIONS.md) para el log de decisiones de diseño.
+See [`SPECS.md`](./SPECS.md) for detailed tool specifications.
+See [`DECISIONS.md`](./DECISIONS.md) for the design decisions log.
 
 ```
 src/
-├── index.ts          # Entry point y configuración del servidor MCP
-├── types.ts          # Interfaces TypeScript de todas las entidades Taiga
-├── formats.ts        # Funciones de formateo para respuestas legibles
+├── index.ts          # Entry point and MCP server configuration
+├── types.ts          # TypeScript interfaces for all Taiga entities
+├── formats.ts        # Formatting functions for readable responses
 ├── services/
-│   └── taiga.ts      # Cliente HTTP y funciones de la API de Taiga
-└── tools/            # Un fichero por entidad, cada uno registra sus MCP tools
+│   └── taiga.ts      # HTTP client and Taiga API functions
+└── tools/            # One file per entity, each registers its MCP tools
     ├── projects.ts
     ├── milestones.ts
     ├── userstories.ts
