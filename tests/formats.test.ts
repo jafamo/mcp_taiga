@@ -299,9 +299,9 @@ describe("formatTask", () => {
     expect(result).toContain("#42");
   });
 
-  it("shows Sin US when no user story", () => {
+  it("shows No US when no user story", () => {
     const result = formatTask({ ...baseTask, user_story: null, user_story_extra_info: null });
-    expect(result).toContain("Sin US");
+    expect(result).toContain("No US");
   });
 });
 

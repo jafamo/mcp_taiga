@@ -50,8 +50,8 @@
 - [ ] Do not retry 4xx errors (client-side errors)
 
 ### 8. Consistent language
-- [ ] Decide on a single language for tool descriptions (currently mixing Spanish/English)
-- [ ] Unify error messages (currently mixing Spanish/English/emojis)
+- [x] Decide on a single language for tool descriptions (currently mixing Spanish/English)
+- [x] Unify error messages (currently mixing Spanish/English/emojis)
 
 ---
 
