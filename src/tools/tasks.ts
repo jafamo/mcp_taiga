@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listTasks, getTask, createTask, editTask, deleteTask } from "../services/taiga.js";
 import { textResponse, errorResponse, formatTask } from "../formats.js";
+import { logger } from "../logger.js";
 
 export function registerTaskTools(server: McpServer): void {
   server.tool(
@@ -15,6 +16,7 @@ export function registerTaskTools(server: McpServer): void {
       status: z.number().int().positive().optional().describe("Filtrar por estado (ID)"),
     },
     async ({ project_id, milestone_id, userstory_id, assigned_to, status }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_tasks", project_id, milestone_id });
       try {
         const tasks = await listTasks({
           project: project_id,
@@ -27,6 +29,7 @@ export function registerTaskTools(server: McpServer): void {
         const lines = tasks.map(formatTask).join("\n\n");
         return textResponse(`${tasks.length} tareas encontradas:\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_list_tasks", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -39,12 +42,14 @@ export function registerTaskTools(server: McpServer): void {
       task_id: z.number().int().positive().describe("ID de la tarea"),
     },
     async ({ task_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_get_task", task_id });
       try {
         const task = await getTask(task_id);
         const header = formatTask(task);
         const desc = task.description ? `\n\n**Descripción:**\n${task.description}` : "";
         return textResponse(`${header}${desc}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_get_task", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -64,6 +69,7 @@ export function registerTaskTools(server: McpServer): void {
       status: z.number().int().positive().optional().describe("Estado inicial (ID)"),
     },
     async ({ project_id, subject, description, userstory_id, milestone_id, assigned_to, tags, status }) => {
+      logger.debug("tool invoked", { tool: "taiga_create_task", project_id, subject });
       try {
         const task = await createTask({
           project: project_id,
@@ -77,6 +83,7 @@ export function registerTaskTools(server: McpServer): void {
         });
         return textResponse(`Tarea creada:\n\n${formatTask(task)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_create_task", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -97,6 +104,7 @@ export function registerTaskTools(server: McpServer): void {
       tags: z.array(z.string()).optional().describe("Nueva lista de tags"),
     },
     async ({ task_id, version, subject, description, userstory_id, milestone_id, assigned_to, status, tags }) => {
+      logger.debug("tool invoked", { tool: "taiga_edit_task", task_id, version });
       try {
         const task = await editTask(task_id, version, {
           ...(subject !== undefined && { subject }),
@@ -109,6 +117,7 @@ export function registerTaskTools(server: McpServer): void {
         });
         return textResponse(`Tarea actualizada:\n\n${formatTask(task)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_edit_task", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -121,10 +130,12 @@ export function registerTaskTools(server: McpServer): void {
       task_id: z.number().int().positive().describe("ID de la tarea a eliminar"),
     },
     async ({ task_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_delete_task", task_id });
       try {
         await deleteTask(task_id);
         return textResponse(`Tarea eliminada (id: ${task_id})`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_delete_task", error: String(error) });
         return errorResponse(error);
       }
     }

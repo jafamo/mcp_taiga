@@ -7,7 +7,7 @@
 - [x] Configure level via `LOG_LEVEL` environment variable
 - [x] Add logs for every HTTP call in `src/services/taiga.ts` (method, URL, status, response time)
 - [x] Log configuration on startup (without exposing tokens)
-- [ ] Add logs in every tool on invocation (name, parameters, result)
+- [x] Add logs in every tool on invocation (name, parameters, result)
 
 ### 2. Improved error handling
 - [ ] Create `TaigaApiError` class with `status`, `message`, `details` fields

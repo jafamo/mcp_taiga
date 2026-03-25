@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listEpics, getEpic, createEpic, editEpic } from "../services/taiga.js";
 import { textResponse, errorResponse, formatEpic } from "../formats.js";
+import { logger } from "../logger.js";
 
 export function registerEpicTools(server: McpServer): void {
   server.tool(
@@ -11,12 +12,14 @@ export function registerEpicTools(server: McpServer): void {
       project_id: z.number().int().positive().describe("ID del proyecto"),
     },
     async ({ project_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_epics", project_id });
       try {
         const epics = await listEpics(project_id);
         if (epics.length === 0) return textResponse("No se encontraron epics.");
         const lines = epics.map(formatEpic).join("\n\n");
         return textResponse(`${epics.length} epics encontrados:\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_list_epics", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -29,12 +32,14 @@ export function registerEpicTools(server: McpServer): void {
       epic_id: z.number().int().positive().describe("ID del epic"),
     },
     async ({ epic_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_get_epic", epic_id });
       try {
         const epic = await getEpic(epic_id);
         const header = formatEpic(epic);
         const desc = epic.description ? `\n\n**Descripción:**\n${epic.description}` : "";
         return textResponse(`${header}${desc}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_get_epic", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -53,10 +58,12 @@ export function registerEpicTools(server: McpServer): void {
       status: z.number().int().positive().optional().describe("Estado inicial (ID)"),
     },
     async ({ project_id, subject, description, assigned_to, tags, color, status }) => {
+      logger.debug("tool invoked", { tool: "taiga_create_epic", project_id, subject });
       try {
         const epic = await createEpic({ project: project_id, subject, description, assigned_to, tags, color, status });
         return textResponse(`Epic creado:\n\n${formatEpic(epic)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_create_epic", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -76,6 +83,7 @@ export function registerEpicTools(server: McpServer): void {
       color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe("Nuevo color en formato hex (#RRGGBB)"),
     },
     async ({ epic_id, version, subject, description, assigned_to, status, tags, color }) => {
+      logger.debug("tool invoked", { tool: "taiga_edit_epic", epic_id, version });
       try {
         const epic = await editEpic(epic_id, version, {
           ...(subject !== undefined && { subject }),
@@ -87,6 +95,7 @@ export function registerEpicTools(server: McpServer): void {
         });
         return textResponse(`Epic actualizado:\n\n${formatEpic(epic)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_edit_epic", error: String(error) });
         return errorResponse(error);
       }
     }

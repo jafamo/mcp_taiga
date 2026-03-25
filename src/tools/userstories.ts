@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listUserStories, getUserStory, createUserStory, editUserStory, deleteUserStory } from "../services/taiga.js";
 import { textResponse, errorResponse, formatUserStory } from "../formats.js";
+import { logger } from "../logger.js";
 
 export function registerUserStoryTools(server: McpServer): void {
   server.tool(
@@ -15,6 +16,7 @@ export function registerUserStoryTools(server: McpServer): void {
       tags: z.string().optional().describe("Filtrar por tags (separadas por coma)"),
     },
     async ({ project_id, milestone_id, assigned_to, status, tags }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_userstories", project_id, milestone_id });
       try {
         const stories = await listUserStories({
           project: project_id,
@@ -27,6 +29,7 @@ export function registerUserStoryTools(server: McpServer): void {
         const lines = stories.map(formatUserStory).join("\n\n");
         return textResponse(`${stories.length} user stories encontradas:\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_list_userstories", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -39,12 +42,14 @@ export function registerUserStoryTools(server: McpServer): void {
       userstory_id: z.number().int().positive().describe("ID de la user story"),
     },
     async ({ userstory_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_get_userstory", userstory_id });
       try {
         const us = await getUserStory(userstory_id);
         const header = formatUserStory(us);
         const desc = us.description ? `\n\n**Descripción:**\n${us.description}` : "";
         return textResponse(`${header}${desc}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_get_userstory", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -63,6 +68,7 @@ export function registerUserStoryTools(server: McpServer): void {
       status: z.number().int().positive().optional().describe("Estado inicial (ID)"),
     },
     async ({ project_id, subject, description, milestone_id, assigned_to, tags, status }) => {
+      logger.debug("tool invoked", { tool: "taiga_create_userstory", project_id, subject });
       try {
         const us = await createUserStory({
           project: project_id,
@@ -75,6 +81,7 @@ export function registerUserStoryTools(server: McpServer): void {
         });
         return textResponse(`User story creada:\n\n${formatUserStory(us)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_create_userstory", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -94,6 +101,7 @@ export function registerUserStoryTools(server: McpServer): void {
       tags: z.array(z.string()).optional().describe("Nueva lista de tags"),
     },
     async ({ userstory_id, version, subject, description, milestone_id, assigned_to, status, tags }) => {
+      logger.debug("tool invoked", { tool: "taiga_edit_userstory", userstory_id, version });
       try {
         const us = await editUserStory(userstory_id, version, {
           ...(subject !== undefined && { subject }),
@@ -105,6 +113,7 @@ export function registerUserStoryTools(server: McpServer): void {
         });
         return textResponse(`User story actualizada:\n\n${formatUserStory(us)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_edit_userstory", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -117,10 +126,12 @@ export function registerUserStoryTools(server: McpServer): void {
       userstory_id: z.number().int().positive().describe("ID de la user story a eliminar"),
     },
     async ({ userstory_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_delete_userstory", userstory_id });
       try {
         await deleteUserStory(userstory_id);
         return textResponse(`User story eliminada (id: ${userstory_id})`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_delete_userstory", error: String(error) });
         return errorResponse(error);
       }
     }
