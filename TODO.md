@@ -32,8 +32,8 @@
 - [x] Handle cases where the response does not match the expected schema
 
 ### 5. Pagination in list endpoints
-- [ ] Add optional `page` and `page_size` parameters to all `list_*` tools
-- [ ] Document default values in Zod schemas
+- [x] Add optional `page` and `page_size` parameters to all `list_*` tools
+- [x] Document default values in Zod schemas
 
 ---
 
