@@ -11,6 +11,7 @@ import type {
   TaigaUserRef,
 } from "../types.js";
 import { logger } from "../logger.js";
+import { TaigaApiError } from "../errors.js";
 
 export type { TaigaUserRef };
 
@@ -63,16 +64,15 @@ async function request<T>(
   const ms = Date.now() - start;
 
   if (!response.ok) {
-    let errorMessage = `Taiga API error ${response.status}`;
+    let details = response.statusText;
     try {
       const errorBody = await response.json() as Record<string, unknown>;
-      const detail = errorBody["_error_message"] ?? errorBody["detail"] ?? JSON.stringify(errorBody);
-      errorMessage += `: ${detail}`;
+      details = String(errorBody["_error_message"] ?? errorBody["detail"] ?? JSON.stringify(errorBody));
     } catch {
-      errorMessage += `: ${response.statusText}`;
+      // keep statusText as details
     }
-    logger.warn("HTTP error", { method, path, status: response.status, ms });
-    throw new Error(errorMessage);
+    logger.warn("HTTP error", { method, path, status: response.status, ms, details });
+    throw new TaigaApiError(response.status, details);
   }
 
   logger.debug("HTTP response", { method, path, status: response.status, ms });
