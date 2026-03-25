@@ -10,8 +10,19 @@ import type {
   TaigaSearchResult,
   TaigaUserRef,
 } from "../types.js";
+import { z } from "zod";
 import { logger } from "../logger.js";
 import { TaigaApiError } from "../errors.js";
+import {
+  ProjectSchema,
+  MilestoneSchema,
+  UserStorySchema,
+  TaskSchema,
+  IssueSchema,
+  EpicSchema,
+  WikiPageSchema,
+  UserRefSchema,
+} from "../schemas.js";
 
 export type { TaigaUserRef };
 
@@ -92,6 +103,32 @@ export const api = {
   delete: (path: string) => request<Record<string, never>>("DELETE", path),
 };
 
+// ─── Response Validation ─────────────────────────────────────────────────────
+// Non-breaking: logs a warning on schema mismatch but returns the data as-is
+// so existing functionality is never disrupted by an unexpected API shape.
+
+function validate(schema: z.ZodTypeAny, data: unknown, context: string): unknown {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    logger.warn("API response validation failed", {
+      context,
+      issues: result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+    });
+  }
+  return data;
+}
+
+function validateArray(schema: z.ZodTypeAny, data: unknown, context: string): unknown[] {
+  const result = z.array(schema).safeParse(data);
+  if (!result.success) {
+    logger.warn("API response validation failed", {
+      context,
+      issues: result.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`),
+    });
+  }
+  return data as unknown[];
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export async function authenticate(username: string, password: string): Promise<TaigaAuthResponse> {
@@ -110,15 +147,18 @@ export async function authenticate(username: string, password: string): Promise<
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 export async function listProjects(member?: number): Promise<TaigaProject[]> {
-  return api.get<TaigaProject[]>("projects", member ? { member } : undefined);
+  const data = await api.get<unknown>("projects", member ? { member } : undefined);
+  return validateArray(ProjectSchema, data, "listProjects") as unknown as TaigaProject[];
 }
 
 export async function getProject(projectId: number): Promise<TaigaProject> {
-  return api.get<TaigaProject>(`projects/${projectId}`);
+  const data = await api.get<unknown>(`projects/${projectId}`);
+  return validate(ProjectSchema, data, "getProject") as unknown as TaigaProject;
 }
 
 export async function getProjectBySlug(slug: string): Promise<TaigaProject> {
-  return api.get<TaigaProject>(`projects/by_slug`, { slug });
+  const data = await api.get<unknown>(`projects/by_slug`, { slug });
+  return validate(ProjectSchema, data, "getProjectBySlug") as unknown as TaigaProject;
 }
 
 export async function createProject(data: {
@@ -126,17 +166,20 @@ export async function createProject(data: {
   description?: string;
   is_private?: boolean;
 }): Promise<TaigaProject> {
-  return api.post<TaigaProject>("projects", data);
+  const res = await api.post<unknown>("projects", data);
+  return validate(ProjectSchema, res, "createProject") as unknown as TaigaProject;
 }
 
 // ─── Milestones (Sprints) ─────────────────────────────────────────────────────
 
 export async function listMilestones(projectId: number, closed?: boolean): Promise<TaigaMilestone[]> {
-  return api.get<TaigaMilestone[]>("milestones", { project: projectId, ...(closed !== undefined ? { closed } : {}) });
+  const data = await api.get<unknown>("milestones", { project: projectId, ...(closed !== undefined ? { closed } : {}) });
+  return validateArray(MilestoneSchema, data, "listMilestones") as unknown as TaigaMilestone[];
 }
 
 export async function getMilestone(milestoneId: number): Promise<TaigaMilestone> {
-  return api.get<TaigaMilestone>(`milestones/${milestoneId}`);
+  const data = await api.get<unknown>(`milestones/${milestoneId}`);
+  return validate(MilestoneSchema, data, "getMilestone") as unknown as TaigaMilestone;
 }
 
 export async function createMilestone(data: {
@@ -145,7 +188,8 @@ export async function createMilestone(data: {
   estimated_start: string;
   estimated_finish: string;
 }): Promise<TaigaMilestone> {
-  return api.post<TaigaMilestone>("milestones", data);
+  const res = await api.post<unknown>("milestones", data);
+  return validate(MilestoneSchema, res, "createMilestone") as unknown as TaigaMilestone;
 }
 
 // ─── User Stories ─────────────────────────────────────────────────────────────
@@ -157,11 +201,13 @@ export async function listUserStories(params: {
   status?: number;
   tags?: string;
 }): Promise<TaigaUserStory[]> {
-  return api.get<TaigaUserStory[]>("userstories", params as Record<string, string | number | boolean | undefined>);
+  const data = await api.get<unknown>("userstories", params as Record<string, string | number | boolean | undefined>);
+  return validateArray(UserStorySchema, data, "listUserStories") as unknown as TaigaUserStory[];
 }
 
 export async function getUserStory(userStoryId: number): Promise<TaigaUserStory> {
-  return api.get<TaigaUserStory>(`userstories/${userStoryId}`);
+  const data = await api.get<unknown>(`userstories/${userStoryId}`);
+  return validate(UserStorySchema, data, "getUserStory") as unknown as TaigaUserStory;
 }
 
 export async function createUserStory(data: {
@@ -173,7 +219,8 @@ export async function createUserStory(data: {
   tags?: string[];
   status?: number;
 }): Promise<TaigaUserStory> {
-  return api.post<TaigaUserStory>("userstories", data);
+  const res = await api.post<unknown>("userstories", data);
+  return validate(UserStorySchema, res, "createUserStory") as unknown as TaigaUserStory;
 }
 
 export async function editUserStory(
@@ -188,7 +235,8 @@ export async function editUserStory(
     tags: string[];
   }>
 ): Promise<TaigaUserStory> {
-  return api.patch<TaigaUserStory>(`userstories/${userStoryId}`, { version, ...data });
+  const res = await api.patch<unknown>(`userstories/${userStoryId}`, { version, ...data });
+  return validate(UserStorySchema, res, "editUserStory") as unknown as TaigaUserStory;
 }
 
 export async function deleteUserStory(userStoryId: number): Promise<void> {
@@ -204,11 +252,13 @@ export async function listTasks(params: {
   assigned_to?: number;
   status?: number;
 }): Promise<TaigaTask[]> {
-  return api.get<TaigaTask[]>("tasks", params as Record<string, string | number | boolean | undefined>);
+  const data = await api.get<unknown>("tasks", params as Record<string, string | number | boolean | undefined>);
+  return validateArray(TaskSchema, data, "listTasks") as unknown as TaigaTask[];
 }
 
 export async function getTask(taskId: number): Promise<TaigaTask> {
-  return api.get<TaigaTask>(`tasks/${taskId}`);
+  const data = await api.get<unknown>(`tasks/${taskId}`);
+  return validate(TaskSchema, data, "getTask") as unknown as TaigaTask;
 }
 
 export async function createTask(data: {
@@ -221,7 +271,8 @@ export async function createTask(data: {
   tags?: string[];
   status?: number;
 }): Promise<TaigaTask> {
-  return api.post<TaigaTask>("tasks", data);
+  const res = await api.post<unknown>("tasks", data);
+  return validate(TaskSchema, res, "createTask") as unknown as TaigaTask;
 }
 
 export async function editTask(
@@ -237,7 +288,8 @@ export async function editTask(
     tags: string[];
   }>
 ): Promise<TaigaTask> {
-  return api.patch<TaigaTask>(`tasks/${taskId}`, { version, ...data });
+  const res = await api.patch<unknown>(`tasks/${taskId}`, { version, ...data });
+  return validate(TaskSchema, res, "editTask") as unknown as TaigaTask;
 }
 
 export async function deleteTask(taskId: number): Promise<void> {
@@ -255,11 +307,13 @@ export async function listIssues(params: {
   priority?: number;
   severity?: number;
 }): Promise<TaigaIssue[]> {
-  return api.get<TaigaIssue[]>("issues", params as Record<string, string | number | boolean | undefined>);
+  const data = await api.get<unknown>("issues", params as Record<string, string | number | boolean | undefined>);
+  return validateArray(IssueSchema, data, "listIssues") as unknown as TaigaIssue[];
 }
 
 export async function getIssue(issueId: number): Promise<TaigaIssue> {
-  return api.get<TaigaIssue>(`issues/${issueId}`);
+  const data = await api.get<unknown>(`issues/${issueId}`);
+  return validate(IssueSchema, data, "getIssue") as unknown as TaigaIssue;
 }
 
 export async function createIssue(data: {
@@ -274,7 +328,8 @@ export async function createIssue(data: {
   priority?: number;
   severity?: number;
 }): Promise<TaigaIssue> {
-  return api.post<TaigaIssue>("issues", data);
+  const res = await api.post<unknown>("issues", data);
+  return validate(IssueSchema, res, "createIssue") as unknown as TaigaIssue;
 }
 
 export async function editIssue(
@@ -292,7 +347,8 @@ export async function editIssue(
     tags: string[];
   }>
 ): Promise<TaigaIssue> {
-  return api.patch<TaigaIssue>(`issues/${issueId}`, { version, ...data });
+  const res = await api.patch<unknown>(`issues/${issueId}`, { version, ...data });
+  return validate(IssueSchema, res, "editIssue") as unknown as TaigaIssue;
 }
 
 export async function deleteIssue(issueId: number): Promise<void> {
@@ -302,11 +358,13 @@ export async function deleteIssue(issueId: number): Promise<void> {
 // ─── Epics ────────────────────────────────────────────────────────────────────
 
 export async function listEpics(projectId: number): Promise<TaigaEpic[]> {
-  return api.get<TaigaEpic[]>("epics", { project: projectId });
+  const data = await api.get<unknown>("epics", { project: projectId });
+  return validateArray(EpicSchema, data, "listEpics") as unknown as TaigaEpic[];
 }
 
 export async function getEpic(epicId: number): Promise<TaigaEpic> {
-  return api.get<TaigaEpic>(`epics/${epicId}`);
+  const data = await api.get<unknown>(`epics/${epicId}`);
+  return validate(EpicSchema, data, "getEpic") as unknown as TaigaEpic;
 }
 
 export async function createEpic(data: {
@@ -318,7 +376,8 @@ export async function createEpic(data: {
   color?: string;
   status?: number;
 }): Promise<TaigaEpic> {
-  return api.post<TaigaEpic>("epics", data);
+  const res = await api.post<unknown>("epics", data);
+  return validate(EpicSchema, res, "createEpic") as unknown as TaigaEpic;
 }
 
 export async function editEpic(
@@ -333,21 +392,25 @@ export async function editEpic(
     color: string;
   }>
 ): Promise<TaigaEpic> {
-  return api.patch<TaigaEpic>(`epics/${epicId}`, { version, ...data });
+  const res = await api.patch<unknown>(`epics/${epicId}`, { version, ...data });
+  return validate(EpicSchema, res, "editEpic") as unknown as TaigaEpic;
 }
 
 // ─── Wiki ─────────────────────────────────────────────────────────────────────
 
 export async function listWikiPages(projectId: number): Promise<TaigaWikiPage[]> {
-  return api.get<TaigaWikiPage[]>("wiki", { project: projectId });
+  const data = await api.get<unknown>("wiki", { project: projectId });
+  return validateArray(WikiPageSchema, data, "listWikiPages") as unknown as TaigaWikiPage[];
 }
 
 export async function getWikiPage(pageId: number): Promise<TaigaWikiPage> {
-  return api.get<TaigaWikiPage>(`wiki/${pageId}`);
+  const data = await api.get<unknown>(`wiki/${pageId}`);
+  return validate(WikiPageSchema, data, "getWikiPage") as unknown as TaigaWikiPage;
 }
 
 export async function getWikiPageBySlug(projectId: number, slug: string): Promise<TaigaWikiPage> {
-  return api.get<TaigaWikiPage>(`wiki/by_slug`, { project: projectId, slug });
+  const data = await api.get<unknown>(`wiki/by_slug`, { project: projectId, slug });
+  return validate(WikiPageSchema, data, "getWikiPageBySlug") as unknown as TaigaWikiPage;
 }
 
 export async function createWikiPage(data: {
@@ -355,7 +418,8 @@ export async function createWikiPage(data: {
   slug: string;
   content: string;
 }): Promise<TaigaWikiPage> {
-  return api.post<TaigaWikiPage>("wiki", data);
+  const res = await api.post<unknown>("wiki", data);
+  return validate(WikiPageSchema, res, "createWikiPage") as unknown as TaigaWikiPage;
 }
 
 export async function editWikiPage(
@@ -363,7 +427,8 @@ export async function editWikiPage(
   version: number,
   content: string
 ): Promise<TaigaWikiPage> {
-  return api.patch<TaigaWikiPage>(`wiki/${pageId}`, { version, content });
+  const res = await api.patch<unknown>(`wiki/${pageId}`, { version, content });
+  return validate(WikiPageSchema, res, "editWikiPage") as unknown as TaigaWikiPage;
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────
@@ -375,9 +440,9 @@ export async function searchProject(projectId: number, text: string): Promise<Ta
 // ─── Members ──────────────────────────────────────────────────────────────────
 
 export async function listMembers(projectId: number): Promise<TaigaUserRef[]> {
-  const memberships = await api.get<Array<{ user: number; user_data: TaigaUserRef }>>(
+  const memberships = await api.get<Array<{ user: number; user_data: unknown }>>(
     "memberships",
     { project: projectId }
   );
-  return memberships.map((m) => m.user_data);
+  return memberships.map((m) => validate(UserRefSchema, m.user_data, "listMembers") as TaigaUserRef);
 }
