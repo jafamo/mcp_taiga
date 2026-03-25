@@ -7,13 +7,13 @@ import { logger } from "../logger.js";
 export function registerTaskTools(server: McpServer): void {
   server.tool(
     "taiga_list_tasks",
-    "Lista tareas con filtros opcionales",
+    "List tasks with optional filters",
     {
-      project_id: z.number().int().positive().optional().describe("ID del proyecto"),
-      milestone_id: z.number().int().positive().optional().describe("Filtrar por sprint (ID)"),
-      userstory_id: z.number().int().positive().optional().describe("Filtrar por user story (ID)"),
-      assigned_to: z.number().int().positive().optional().describe("Filtrar por usuario asignado (ID)"),
-      status: z.number().int().positive().optional().describe("Filtrar por estado (ID)"),
+      project_id: z.number().int().positive().optional().describe("Project ID"),
+      milestone_id: z.number().int().positive().optional().describe("Filter by sprint (ID)"),
+      userstory_id: z.number().int().positive().optional().describe("Filter by user story (ID)"),
+      assigned_to: z.number().int().positive().optional().describe("Filter by assigned user (ID)"),
+      status: z.number().int().positive().optional().describe("Filter by status (ID)"),
       page: z.number().int().positive().optional().default(1).describe("Page number (default: 1)"),
       page_size: z.number().int().positive().max(500).optional().default(100).describe("Results per page (default: 100, max: 500)"),
     },
@@ -42,16 +42,16 @@ export function registerTaskTools(server: McpServer): void {
 
   server.tool(
     "taiga_get_task",
-    "Obtiene los detalles completos de una tarea por ID",
+    "Get full details of a task by ID",
     {
-      task_id: z.number().int().positive().describe("ID de la tarea"),
+      task_id: z.number().int().positive().describe("Task ID"),
     },
     async ({ task_id }) => {
       logger.debug("tool invoked", { tool: "taiga_get_task", task_id });
       try {
         const task = await getTask(task_id);
         const header = formatTask(task);
-        const desc = task.description ? `\n\n**Descripción:**\n${task.description}` : "";
+        const desc = task.description ? `\n\n**Description:**\n${task.description}` : "";
         return textResponse(`${header}${desc}`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_get_task", error: String(error) });
@@ -62,16 +62,16 @@ export function registerTaskTools(server: McpServer): void {
 
   server.tool(
     "taiga_create_task",
-    "Crea una nueva tarea en un proyecto",
+    "Create a new task in a project",
     {
-      project_id: z.number().int().positive().describe("ID del proyecto"),
-      subject: z.string().min(1).describe("Título de la tarea"),
-      description: z.string().optional().describe("Descripción detallada"),
-      userstory_id: z.number().int().positive().optional().describe("User story a la que pertenece (ID)"),
-      milestone_id: z.number().int().positive().optional().describe("Sprint al que asignar (ID)"),
-      assigned_to: z.number().int().positive().optional().describe("Usuario asignado (ID)"),
-      tags: z.array(z.string()).optional().describe("Lista de tags"),
-      status: z.number().int().positive().optional().describe("Estado inicial (ID)"),
+      project_id: z.number().int().positive().describe("Project ID"),
+      subject: z.string().min(1).describe("Task title"),
+      description: z.string().optional().describe("Detailed description"),
+      userstory_id: z.number().int().positive().optional().describe("User story this task belongs to (ID)"),
+      milestone_id: z.number().int().positive().optional().describe("Sprint to assign (ID)"),
+      assigned_to: z.number().int().positive().optional().describe("Assigned user (ID)"),
+      tags: z.array(z.string()).optional().describe("List of tags"),
+      status: z.number().int().positive().optional().describe("Initial status (ID)"),
     },
     async ({ project_id, subject, description, userstory_id, milestone_id, assigned_to, tags, status }) => {
       logger.debug("tool invoked", { tool: "taiga_create_task", project_id, subject });
@@ -86,7 +86,7 @@ export function registerTaskTools(server: McpServer): void {
           tags,
           status,
         });
-        return textResponse(`Tarea creada:\n\n${formatTask(task)}`);
+        return textResponse(`Task created:\n\n${formatTask(task)}`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_create_task", error: String(error) });
         return errorResponse(error);
@@ -96,17 +96,17 @@ export function registerTaskTools(server: McpServer): void {
 
   server.tool(
     "taiga_edit_task",
-    "Edita una tarea existente. Obtén la versión actual con taiga_get_task antes de editar.",
+    "Edit an existing task. Fetch the current version with taiga_get_task before editing.",
     {
-      task_id: z.number().int().positive().describe("ID de la tarea"),
-      version: z.number().int().positive().describe("Versión actual (obtenida del GET previo)"),
-      subject: z.string().optional().describe("Nuevo título"),
-      description: z.string().optional().describe("Nueva descripción"),
-      userstory_id: z.number().int().positive().nullable().optional().describe("Nueva user story (null = sin US)"),
-      milestone_id: z.number().int().positive().nullable().optional().describe("Nuevo sprint (null = sin sprint)"),
-      assigned_to: z.number().int().positive().nullable().optional().describe("Nuevo asignado (null = nadie)"),
-      status: z.number().int().positive().optional().describe("Nuevo estado (ID)"),
-      tags: z.array(z.string()).optional().describe("Nueva lista de tags"),
+      task_id: z.number().int().positive().describe("Task ID"),
+      version: z.number().int().positive().describe("Current version (obtained from the GET first)"),
+      subject: z.string().optional().describe("New title"),
+      description: z.string().optional().describe("New description"),
+      userstory_id: z.number().int().positive().nullable().optional().describe("New user story (null = no US)"),
+      milestone_id: z.number().int().positive().nullable().optional().describe("New sprint (null = no sprint)"),
+      assigned_to: z.number().int().positive().nullable().optional().describe("New assignee (null = nobody)"),
+      status: z.number().int().positive().optional().describe("New status (ID)"),
+      tags: z.array(z.string()).optional().describe("New list of tags"),
     },
     async ({ task_id, version, subject, description, userstory_id, milestone_id, assigned_to, status, tags }) => {
       logger.debug("tool invoked", { tool: "taiga_edit_task", task_id, version });
@@ -120,7 +120,7 @@ export function registerTaskTools(server: McpServer): void {
           ...(status !== undefined && { status }),
           ...(tags !== undefined && { tags }),
         });
-        return textResponse(`Tarea actualizada:\n\n${formatTask(task)}`);
+        return textResponse(`Task updated:\n\n${formatTask(task)}`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_edit_task", error: String(error) });
         return errorResponse(error);
@@ -130,15 +130,15 @@ export function registerTaskTools(server: McpServer): void {
 
   server.tool(
     "taiga_delete_task",
-    "Elimina una tarea permanentemente",
+    "Permanently delete a task",
     {
-      task_id: z.number().int().positive().describe("ID de la tarea a eliminar"),
+      task_id: z.number().int().positive().describe("Task ID to delete"),
     },
     async ({ task_id }) => {
       logger.debug("tool invoked", { tool: "taiga_delete_task", task_id });
       try {
         await deleteTask(task_id);
-        return textResponse(`Tarea eliminada (id: ${task_id})`);
+        return textResponse(`Task deleted (id: ${task_id})`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_delete_task", error: String(error) });
         return errorResponse(error);
