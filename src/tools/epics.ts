@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listEpics, getEpic, createEpic, editEpic } from "../services/taiga.js";
-import { textResponse, errorResponse, formatEpic } from "../formats.js";
+import { textResponse, errorResponse, formatEpic, formatPaginationHeader } from "../formats.js";
 import { logger } from "../logger.js";
 
 export function registerEpicTools(server: McpServer): void {
@@ -10,14 +10,17 @@ export function registerEpicTools(server: McpServer): void {
     "Lista todos los epics de un proyecto",
     {
       project_id: z.number().int().positive().describe("ID del proyecto"),
+      page: z.number().int().positive().optional().default(1).describe("Page number (default: 1)"),
+      page_size: z.number().int().positive().max(500).optional().default(100).describe("Results per page (default: 100, max: 500)"),
     },
-    async ({ project_id }) => {
-      logger.debug("tool invoked", { tool: "taiga_list_epics", project_id });
+    async ({ project_id, page, page_size }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_epics", project_id, page, page_size });
       try {
-        const epics = await listEpics(project_id);
-        if (epics.length === 0) return textResponse("No se encontraron epics.");
-        const lines = epics.map(formatEpic).join("\n\n");
-        return textResponse(`${epics.length} epics encontrados:\n\n${lines}`);
+        const result = await listEpics(project_id, page, page_size);
+        if (result.items.length === 0) return textResponse("No epics found.");
+        const header = formatPaginationHeader(result, "epics");
+        const lines = result.items.map(formatEpic).join("\n\n");
+        return textResponse(`${header}\n\n${lines}`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_list_epics", error: String(error) });
         return errorResponse(error);

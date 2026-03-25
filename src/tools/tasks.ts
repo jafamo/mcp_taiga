@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listTasks, getTask, createTask, editTask, deleteTask } from "../services/taiga.js";
-import { textResponse, errorResponse, formatTask } from "../formats.js";
+import { textResponse, errorResponse, formatTask, formatPaginationHeader } from "../formats.js";
 import { logger } from "../logger.js";
 
 export function registerTaskTools(server: McpServer): void {
@@ -14,20 +14,25 @@ export function registerTaskTools(server: McpServer): void {
       userstory_id: z.number().int().positive().optional().describe("Filtrar por user story (ID)"),
       assigned_to: z.number().int().positive().optional().describe("Filtrar por usuario asignado (ID)"),
       status: z.number().int().positive().optional().describe("Filtrar por estado (ID)"),
+      page: z.number().int().positive().optional().default(1).describe("Page number (default: 1)"),
+      page_size: z.number().int().positive().max(500).optional().default(100).describe("Results per page (default: 100, max: 500)"),
     },
-    async ({ project_id, milestone_id, userstory_id, assigned_to, status }) => {
-      logger.debug("tool invoked", { tool: "taiga_list_tasks", project_id, milestone_id });
+    async ({ project_id, milestone_id, userstory_id, assigned_to, status, page, page_size }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_tasks", project_id, milestone_id, page, page_size });
       try {
-        const tasks = await listTasks({
+        const result = await listTasks({
           project: project_id,
           milestone: milestone_id,
           user_story: userstory_id,
           assigned_to,
           status,
+          page,
+          page_size,
         });
-        if (tasks.length === 0) return textResponse("No se encontraron tareas.");
-        const lines = tasks.map(formatTask).join("\n\n");
-        return textResponse(`${tasks.length} tareas encontradas:\n\n${lines}`);
+        if (result.items.length === 0) return textResponse("No tasks found.");
+        const header = formatPaginationHeader(result, "tasks");
+        const lines = result.items.map(formatTask).join("\n\n");
+        return textResponse(`${header}\n\n${lines}`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_list_tasks", error: String(error) });
         return errorResponse(error);

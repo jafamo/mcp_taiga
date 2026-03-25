@@ -10,13 +10,18 @@ const { configure, listProjects, getProject, createProject } = await import("../
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function mockResponse(status: number, body: unknown) {
+function makeHeaders(entries: Record<string, string> = {}) {
+  return { get: (key: string) => entries[key.toLowerCase()] ?? null };
+}
+
+function mockResponse(status: number, body: unknown, headers: Record<string, string> = {}) {
   return Promise.resolve({
     ok: status >= 200 && status < 300,
     status,
     statusText: String(status),
+    headers: makeHeaders(headers),
     json: () => Promise.resolve(body),
-  } as Response);
+  } as unknown as Response);
 }
 
 function mockErrorResponse(status: number, body: unknown) {
@@ -24,8 +29,9 @@ function mockErrorResponse(status: number, body: unknown) {
     ok: false,
     status,
     statusText: String(status),
+    headers: makeHeaders(),
     json: () => Promise.resolve(body),
-  } as Response);
+  } as unknown as Response);
 }
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
@@ -56,7 +62,7 @@ describe("HTTP client", () => {
     mockFetch.mockReturnValue(mockResponse(200, []));
     await listProjects();
     const [url] = mockFetch.mock.calls[0] as [string];
-    expect(url).toBe("https://taiga.example.com/api/v1/projects");
+    expect(url).toMatch(/^https:\/\/taiga\.example\.com\/api\/v1\/projects/);
   });
 
   it("strips trailing slash from base URL", async () => {
@@ -64,7 +70,7 @@ describe("HTTP client", () => {
     mockFetch.mockReturnValue(mockResponse(200, []));
     await listProjects();
     const [url] = mockFetch.mock.calls[0] as [string];
-    expect(url).toBe("https://taiga.example.com/api/v1/projects");
+    expect(url).toMatch(/^https:\/\/taiga\.example\.com\/api\/v1\/projects/);
   });
 });
 
@@ -113,8 +119,9 @@ describe("HTTP error handling", () => {
       ok: false,
       status: 503,
       statusText: "Service Unavailable",
+      headers: makeHeaders(),
       json: () => Promise.reject(new Error("not json")),
-    } as Response));
+    } as unknown as Response));
     await expect(listProjects()).rejects.toMatchObject({ status: 503, details: "Service Unavailable" });
   });
 });
@@ -124,15 +131,24 @@ describe("HTTP error handling", () => {
 describe("listProjects", () => {
   it("returns parsed array on 200", async () => {
     const payload = [{ id: 1, name: "Proj A" }, { id: 2, name: "Proj B" }];
-    mockFetch.mockReturnValue(mockResponse(200, payload));
+    mockFetch.mockReturnValue(mockResponse(200, payload, { "x-pagination-count": "2" }));
     const result = await listProjects();
-    expect(result).toEqual(payload);
+    expect(result.items).toEqual(payload);
+    expect(result.total).toBe(2);
   });
 
   it("returns empty array when API returns empty", async () => {
     mockFetch.mockReturnValue(mockResponse(200, []));
     const result = await listProjects();
-    expect(result).toEqual([]);
+    expect(result.items).toEqual([]);
+  });
+
+  it("sets hasMore when x-pagination-next header is present", async () => {
+    const payload = [{ id: 1, name: "Proj A" }];
+    mockFetch.mockReturnValue(mockResponse(200, payload, { "x-pagination-next": "2", "x-pagination-count": "10" }));
+    const result = await listProjects();
+    expect(result.hasMore).toBe(true);
+    expect(result.total).toBe(10);
   });
 });
 

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listIssues, getIssue, createIssue, editIssue, deleteIssue } from "../services/taiga.js";
-import { textResponse, errorResponse, formatIssue } from "../formats.js";
+import { textResponse, errorResponse, formatIssue, formatPaginationHeader } from "../formats.js";
 import { logger } from "../logger.js";
 
 export function registerIssueTools(server: McpServer): void {
@@ -16,11 +16,13 @@ export function registerIssueTools(server: McpServer): void {
       type: z.number().int().positive().optional().describe("Filtrar por tipo (ID)"),
       priority: z.number().int().positive().optional().describe("Filtrar por prioridad (ID)"),
       severity: z.number().int().positive().optional().describe("Filtrar por severidad (ID)"),
+      page: z.number().int().positive().optional().default(1).describe("Page number (default: 1)"),
+      page_size: z.number().int().positive().max(500).optional().default(100).describe("Results per page (default: 100, max: 500)"),
     },
-    async ({ project_id, milestone_id, assigned_to, status, type, priority, severity }) => {
-      logger.debug("tool invoked", { tool: "taiga_list_issues", project_id, milestone_id });
+    async ({ project_id, milestone_id, assigned_to, status, type, priority, severity, page, page_size }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_issues", project_id, milestone_id, page, page_size });
       try {
-        const issues = await listIssues({
+        const result = await listIssues({
           project: project_id,
           milestone: milestone_id,
           assigned_to,
@@ -28,10 +30,13 @@ export function registerIssueTools(server: McpServer): void {
           type,
           priority,
           severity,
+          page,
+          page_size,
         });
-        if (issues.length === 0) return textResponse("No se encontraron issues.");
-        const lines = issues.map(formatIssue).join("\n\n");
-        return textResponse(`${issues.length} issues encontrados:\n\n${lines}`);
+        if (result.items.length === 0) return textResponse("No issues found.");
+        const header = formatPaginationHeader(result, "issues");
+        const lines = result.items.map(formatIssue).join("\n\n");
+        return textResponse(`${header}\n\n${lines}`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_list_issues", error: String(error) });
         return errorResponse(error);

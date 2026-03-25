@@ -16,6 +16,7 @@ import {
   formatUserStory,
   formatIssue,
   formatTask,
+  formatPaginationHeader,
 } from "../formats.js";
 import { logger } from "../logger.js";
 
@@ -25,14 +26,17 @@ export function registerWikiAndSearchTools(server: McpServer): void {
     "Lista todas las páginas wiki de un proyecto",
     {
       project_id: z.number().int().positive().describe("ID del proyecto"),
+      page: z.number().int().positive().optional().default(1).describe("Page number (default: 1)"),
+      page_size: z.number().int().positive().max(500).optional().default(100).describe("Results per page (default: 100, max: 500)"),
     },
-    async ({ project_id }) => {
-      logger.debug("tool invoked", { tool: "taiga_list_wiki_pages", project_id });
+    async ({ project_id, page, page_size }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_wiki_pages", project_id, page, page_size });
       try {
-        const pages = await listWikiPages(project_id);
-        if (pages.length === 0) return textResponse("No se encontraron páginas wiki.");
-        const lines = pages.map(formatWikiPage).join("\n\n");
-        return textResponse(`${pages.length} páginas wiki encontradas:\n\n${lines}`);
+        const result = await listWikiPages(project_id, page, page_size);
+        if (result.items.length === 0) return textResponse("No wiki pages found.");
+        const header = formatPaginationHeader(result, "wiki pages");
+        const lines = result.items.map(formatWikiPage).join("\n\n");
+        return textResponse(`${header}\n\n${lines}`);
       } catch (error) {
         logger.error("tool failed", { tool: "taiga_list_wiki_pages", error: String(error) });
         return errorResponse(error);
