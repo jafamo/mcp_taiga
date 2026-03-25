@@ -24,12 +24,12 @@
 - [x] Add `test` script to `package.json`
 - [x] Tests for `src/services/taiga.ts` (mock `fetch`, test 200/400/401/404/500)
 - [x] Tests for `src/formats.ts` (edge cases: nulls, empty arrays, empty strings)
-- [ ] Zod schema validation tests (valid and invalid input per tool)
+- [x] Zod schema validation tests (valid and invalid input per tool)
 
 ### 4. API response validation
-- [ ] Define Zod schemas for Taiga responses (Project, UserStory, Task, etc.)
-- [ ] Validate responses before casting as `T`
-- [ ] Handle cases where the response does not match the expected schema
+- [x] Define Zod schemas for Taiga responses (Project, UserStory, Task, etc.)
+- [x] Validate responses before casting as `T`
+- [x] Handle cases where the response does not match the expected schema
 
 ### 5. Pagination in list endpoints
 - [ ] Add optional `page` and `page_size` parameters to all `list_*` tools
