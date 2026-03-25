@@ -8,6 +8,7 @@ import type {
   TaigaWikiPage,
   ToolTextResponse,
 } from "./types.js";
+import { TaigaApiError } from "./errors.js";
 
 // ─── Text Response Builder ────────────────────────────────────────────────────
 
@@ -16,6 +17,9 @@ export function textResponse(text: string): ToolTextResponse {
 }
 
 export function errorResponse(error: unknown): ToolTextResponse {
+  if (error instanceof TaigaApiError) {
+    return textResponse(`Error ${error.status}: ${error.message}`);
+  }
   const message = error instanceof Error ? error.message : String(error);
   return textResponse(`Error: ${message}`);
 }

@@ -10,10 +10,10 @@
 - [x] Add logs in every tool on invocation (name, parameters, result)
 
 ### 2. Improved error handling
-- [ ] Create `TaigaApiError` class with `status`, `message`, `details` fields
-- [ ] Differentiate errors: 400 (bad request), 401 (unauthorized), 403 (forbidden), 404 (not found), 500 (server error)
-- [ ] Add context in tool `catch` blocks (which tool, which parameters)
-- [ ] Improve error messages returned to the LLM to be actionable
+- [x] Create `TaigaApiError` class with `status`, `message`, `details` fields
+- [x] Differentiate errors: 400 (bad request), 401 (unauthorized), 403 (forbidden), 404 (not found), 500 (server error)
+- [x] Add context in tool `catch` blocks (which tool, which parameters)
+- [x] Improve error messages returned to the LLM to be actionable
 
 ---
 
