@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { configure } from "./services/taiga.js";
+import { logger } from "./logger.js";
 import { registerProjectTools } from "./tools/projects.js";
 import { registerMilestoneTools } from "./tools/milestones.js";
 import { registerUserStoryTools } from "./tools/userstories.js";
@@ -15,18 +16,27 @@ const TAIGA_URL = process.env["TAIGA_URL"];
 const TAIGA_AUTH_TOKEN = process.env["TAIGA_AUTH_TOKEN"];
 
 if (!TAIGA_URL || !TAIGA_AUTH_TOKEN) {
-  console.error("❌ Variables de entorno requeridas:");
-  console.error("   TAIGA_URL        - URL base de tu instancia Taiga (ej: https://taiga.jfarinos.keenetic.pro)");
-  console.error("   TAIGA_AUTH_TOKEN - Token de autenticación de Taiga");
-  console.error("");
-  console.error("Para obtener el token:");
-  console.error("  curl -s -X POST <TAIGA_URL>/api/v1/auth \\");
-  console.error('    -H "Content-Type: application/json" \\');
-  console.error("    -d '{\"type\":\"normal\",\"username\":\"<user>\",\"password\":\"<pass>\"}' | grep auth_token");
+  logger.error("Missing required environment variables", {
+    TAIGA_URL: TAIGA_URL ? "set" : "missing",
+    TAIGA_AUTH_TOKEN: TAIGA_AUTH_TOKEN ? "set" : "missing",
+  });
+  process.stderr.write([
+    "",
+    "Required environment variables:",
+    "  TAIGA_URL        - Base URL of your Taiga instance (e.g. https://taiga.example.com)",
+    "  TAIGA_AUTH_TOKEN - Taiga authentication token",
+    "",
+    "To obtain the token:",
+    "  curl -s -X POST <TAIGA_URL>/api/v1/auth \\",
+    '    -H "Content-Type: application/json" \\',
+    "    -d '{\"type\":\"normal\",\"username\":\"<user>\",\"password\":\"<pass>\"}' | grep auth_token",
+    "",
+  ].join("\n"));
   process.exit(1);
 }
 
 configure(TAIGA_URL, TAIGA_AUTH_TOKEN);
+logger.info("Configuration loaded", { taiga_url: TAIGA_URL });
 
 // ─── MCP Server ───────────────────────────────────────────────────────────────
 
@@ -50,10 +60,10 @@ registerWikiAndSearchTools(server);
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("✅ Taiga MCP server iniciado (stdio)");
+  logger.info("Taiga MCP server started (stdio)");
 }
 
 main().catch((error: unknown) => {
-  console.error("Error al iniciar el servidor:", error);
+  logger.error("Failed to start server", { error: String(error) });
   process.exit(1);
 });

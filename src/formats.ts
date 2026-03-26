@@ -8,6 +8,8 @@ import type {
   TaigaWikiPage,
   ToolTextResponse,
 } from "./types.js";
+import { TaigaApiError } from "./errors.js";
+import type { PagedResult } from "./services/taiga.js";
 
 // ─── Text Response Builder ────────────────────────────────────────────────────
 
@@ -16,8 +18,19 @@ export function textResponse(text: string): ToolTextResponse {
 }
 
 export function errorResponse(error: unknown): ToolTextResponse {
+  if (error instanceof TaigaApiError) {
+    return textResponse(`Error ${error.status}: ${error.message}`);
+  }
   const message = error instanceof Error ? error.message : String(error);
   return textResponse(`Error: ${message}`);
+}
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+
+export function formatPaginationHeader(result: PagedResult<unknown>, label: string): string {
+  const totalStr = result.total !== null ? ` of ${result.total}` : "";
+  const more = result.hasMore ? ` — use page=${result.page + 1} for more` : "";
+  return `${result.items.length}${totalStr} ${label} (page ${result.page}, ${result.pageSize} per page)${more}`;
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -26,8 +39,8 @@ export function formatProject(p: TaigaProject): string {
   return [
     `**[${p.id}] ${p.name}** (slug: ${p.slug})`,
     p.description ? `  ${p.description}` : "",
-    `  Privado: ${p.is_private ? "Sí" : "No"} | Sprints: ${p.total_milestones}`,
-    `  Módulos: ${[
+    `  Private: ${p.is_private ? "Yes" : "No"} | Sprints: ${p.total_milestones}`,
+    `  Modules: ${[
       p.is_backlog_activated && "Backlog",
       p.is_kanban_activated && "Kanban",
       p.is_issues_activated && "Issues",
@@ -43,23 +56,23 @@ export function formatProject(p: TaigaProject): string {
 export function formatMilestone(m: TaigaMilestone): string {
   const progress =
     m.total_points > 0
-      ? `${m.closed_points}/${m.total_points} puntos (${Math.round((m.closed_points / m.total_points) * 100)}%)`
-      : "Sin puntos";
+      ? `${m.closed_points}/${m.total_points} points (${Math.round((m.closed_points / m.total_points) * 100)}%)`
+      : "No points";
   return [
     `**[${m.id}] ${m.name}**`,
-    `  Proyecto: ${m.project_extra_info.name} | Cerrado: ${m.closed ? "Sí" : "No"}`,
-    `  Fechas: ${m.estimated_start} → ${m.estimated_finish}`,
-    `  Progreso: ${progress}`,
+    `  Project: ${m.project_extra_info.name} | Closed: ${m.closed ? "Yes" : "No"}`,
+    `  Dates: ${m.estimated_start} → ${m.estimated_finish}`,
+    `  Progress: ${progress}`,
   ].join("\n");
 }
 
 export function formatUserStory(us: TaigaUserStory): string {
   return [
     `**[#${us.ref}] ${us.subject}** (id: ${us.id})`,
-    `  Estado: ${us.status_extra_info?.name ?? "Sin estado"} | Cerrada: ${us.is_closed ? "Sí" : "No"}`,
-    `  Sprint: ${us.milestone_name ?? "Backlog"} | Asignada: ${us.assigned_to_extra_info?.full_name ?? "Nadie"}`,
+    `  Status: ${us.status_extra_info?.name ?? "No status"} | Closed: ${us.is_closed ? "Yes" : "No"}`,
+    `  Sprint: ${us.milestone_name ?? "Backlog"} | Assigned: ${us.assigned_to_extra_info?.full_name ?? "Nobody"}`,
     us.tags.length ? `  Tags: ${us.tags.join(", ")}` : "",
-    `  Versión: ${us.version}`,
+    `  Version: ${us.version}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -68,11 +81,11 @@ export function formatUserStory(us: TaigaUserStory): string {
 export function formatTask(t: TaigaTask): string {
   return [
     `**[#${t.ref}] ${t.subject}** (id: ${t.id})`,
-    `  Estado: ${t.status_extra_info?.name ?? "Sin estado"} | Cerrada: ${t.is_closed ? "Sí" : "No"}`,
-    `  US: ${t.user_story_extra_info ? `#${t.user_story_extra_info.ref} ${t.user_story_extra_info.subject}` : "Sin US"}`,
-    `  Asignada: ${t.assigned_to_extra_info?.full_name ?? "Nadie"}`,
+    `  Status: ${t.status_extra_info?.name ?? "No status"} | Closed: ${t.is_closed ? "Yes" : "No"}`,
+    `  US: ${t.user_story_extra_info ? `#${t.user_story_extra_info.ref} ${t.user_story_extra_info.subject}` : "No US"}`,
+    `  Assigned: ${t.assigned_to_extra_info?.full_name ?? "Nobody"}`,
     t.tags.length ? `  Tags: ${t.tags.join(", ")}` : "",
-    `  Versión: ${t.version}`,
+    `  Version: ${t.version}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -81,11 +94,11 @@ export function formatTask(t: TaigaTask): string {
 export function formatIssue(i: TaigaIssue): string {
   return [
     `**[#${i.ref}] ${i.subject}** (id: ${i.id})`,
-    `  Estado: ${i.status_extra_info?.name} | Tipo: ${i.type_extra_info?.name} | Prioridad: ${i.priority_extra_info?.name}`,
-    `  Severidad: ${i.severity_extra_info?.name} | Cerrada: ${i.is_closed ? "Sí" : "No"}`,
-    `  Asignada: ${i.assigned_to_extra_info?.full_name ?? "Nadie"}`,
+    `  Status: ${i.status_extra_info?.name} | Type: ${i.type_extra_info?.name} | Priority: ${i.priority_extra_info?.name}`,
+    `  Severity: ${i.severity_extra_info?.name} | Closed: ${i.is_closed ? "Yes" : "No"}`,
+    `  Assigned: ${i.assigned_to_extra_info?.full_name ?? "Nobody"}`,
     i.tags.length ? `  Tags: ${i.tags.join(", ")}` : "",
-    `  Versión: ${i.version}`,
+    `  Version: ${i.version}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -95,11 +108,11 @@ export function formatEpic(e: TaigaEpic): string {
   const counts = e.user_stories_counts;
   return [
     `**[#${e.ref}] ${e.subject}** (id: ${e.id}) — color: ${e.color}`,
-    `  Estado: ${e.status_extra_info?.name ?? "Sin estado"} | Cerrada: ${e.is_closed ? "Sí" : "No"}`,
+    `  Status: ${e.status_extra_info?.name ?? "No status"} | Closed: ${e.is_closed ? "Yes" : "No"}`,
     `  User stories: ${counts.progress}/${counts.total}`,
-    `  Asignada: ${e.assigned_to_extra_info?.full_name ?? "Nadie"}`,
+    `  Assigned: ${e.assigned_to_extra_info?.full_name ?? "Nobody"}`,
     e.tags.length ? `  Tags: ${e.tags.join(", ")}` : "",
-    `  Versión: ${e.version}`,
+    `  Version: ${e.version}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -109,8 +122,8 @@ export function formatWikiPage(w: TaigaWikiPage): string {
   const preview = w.content.length > 200 ? w.content.slice(0, 200) + "..." : w.content;
   return [
     `**[${w.id}] ${w.slug}**`,
-    `  Proyecto: ${w.project_extra_info.name} | Modificada: ${w.modified_date}`,
-    `  Contenido: ${preview}`,
-    `  Versión: ${w.version}`,
+    `  Project: ${w.project_extra_info.name} | Modified: ${w.modified_date}`,
+    `  Content: ${preview}`,
+    `  Version: ${w.version}`,
   ].join("\n");
 }

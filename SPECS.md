@@ -1,19 +1,21 @@
-# Taiga MCP Server — Especificaciones
+# Taiga MCP Server — Specifications
 
-> Fuente de verdad para la implementación. Revisar antes de escribir o modificar código.
+> Source of truth for the implementation. Read before writing or modifying code.
 
 ---
 
-## Estructura de ficheros objetivo
+## File structure
 
 ```
 taiga/
 ├── src/
-│   ├── index.ts                  # Entry point, orquestación
-│   ├── types.ts                  # Interfaces TypeScript de Taiga
-│   ├── formats.ts                # Formateadores de respuesta
+│   ├── index.ts                  # Entry point, orchestration
+│   ├── types.ts                  # TypeScript interfaces for Taiga entities
+│   ├── formats.ts                # Response formatters
+│   ├── logger.ts                 # Structured logger (DEBUG/INFO/WARN/ERROR)
+│   ├── errors.ts                 # TaigaApiError class
 │   ├── services/
-│   │   └── taiga.ts              # Cliente HTTP + funciones de API
+│   │   └── taiga.ts              # HTTP client + API functions
 │   └── tools/
 │       ├── projects.ts           # registerProjectTools()
 │       ├── milestones.ts         # registerMilestoneTools()
@@ -22,7 +24,7 @@ taiga/
 │       ├── issues.ts             # registerIssueTools()
 │       ├── epics.ts              # registerEpicTools()
 │       └── wiki-search.ts        # registerWikiAndSearchTools()
-├── dist/                         # Compilado (generado, no en git)
+├── dist/                         # Compiled output (generated, not in git)
 ├── package.json
 ├── tsconfig.json
 ├── SPECS.md
@@ -32,87 +34,137 @@ taiga/
 
 ---
 
-## Convenciones generales
+## General conventions
 
-### Firma de registerXxxTools
+### registerXxxTools signature
 
 ```typescript
 export function registerXxxTools(server: McpServer): void
 ```
 
-Cada módulo recibe la instancia `McpServer` y registra sus tools con `server.tool()`.
+Each module receives the `McpServer` instance and registers its tools via `server.tool()`.
 
-### Respuestas
+### Responses
 
-- Siempre usar `textResponse(text)` para éxito y `errorResponse(error)` para error.
-- Las operaciones de lista deben mostrar un resumen con conteo: `"X proyectos encontrados:\n..."`.
-- Las operaciones de creación/edición deben confirmar con el objeto formateado.
-- Las operaciones de borrado deben confirmar con mensaje simple: `"Eliminado correctamente (id: N)"`.
+- Always use `textResponse(text)` for success and `errorResponse(error)` for errors.
+- List operations must show a summary with count: `"N projects found:\n..."`.
+- Create/edit operations must confirm with the formatted object.
+- Delete operations must confirm with a simple message: `"Deleted successfully (id: N)"`.
 
-### Manejo de errores
+### Error handling
 
-Cada handler de tool debe estar envuelto en `try/catch` y retornar `errorResponse(error)`.
+Every tool handler must be wrapped in `try/catch` and return `errorResponse(error)`.
+Errors thrown by the HTTP client are `TaigaApiError` instances with a `status` field.
 
 ```typescript
-server.tool("nombre_tool", schema, async (params) => {
+server.tool("tool_name", schema, async (params) => {
+  logger.debug("tool invoked", { tool: "tool_name", ...relevantParams });
   try {
-    // lógica
-    return textResponse(resultado);
+    // logic
+    return textResponse(result);
   } catch (error) {
+    logger.error("tool failed", { tool: "tool_name", error: String(error) });
     return errorResponse(error);
   }
 });
 ```
 
-### Schemas Zod
+### Logging
 
-- Parámetros requeridos: `z.string()`, `z.number().int().positive()`
-- Parámetros opcionales: `.optional()`
-- IDs numéricos: `z.number().int().positive()`
-- Fechas: `z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD")`
-- Arrays de tags: `z.array(z.string()).optional()`
+All tools log at `DEBUG` level on invocation and `ERROR` level on failure via `src/logger.ts`.
+The HTTP client logs each request/response at `DEBUG` and errors at `WARN`.
+Log level is configured via the `LOG_LEVEL` environment variable (default: `info`).
+
+All log output goes to **stderr** — stdout is reserved for the MCP stdio protocol.
+
+### Zod schemas
+
+- Required params: `z.string()`, `z.number().int().positive()`
+- Optional params: `.optional()`
+- Numeric IDs: `z.number().int().positive()`
+- Dates: `z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD")`
+- Tag arrays: `z.array(z.string()).optional()`
 
 ---
 
-## Módulo: `tools/projects.ts`
+## Module: `src/errors.ts`
+
+### `TaigaApiError`
+
+Extends `Error`. Thrown by the HTTP client for any non-2xx response.
+
+| Field     | Type     | Description                         |
+|-----------|----------|-------------------------------------|
+| `status`  | `number` | HTTP status code                    |
+| `details` | `string` | Raw error detail from Taiga API     |
+| `message` | `string` | Human-readable message with context |
+
+**Status-specific messages:**
+
+| Status | Message prefix                                              |
+|--------|-------------------------------------------------------------|
+| 400    | `Bad request — check the parameters you sent`              |
+| 401    | `Unauthorized — the auth token is invalid or expired`      |
+| 403    | `Forbidden — you don't have permission for this action`    |
+| 404    | `Not found — the resource does not exist`                  |
+| 5xx    | `Taiga server error (N) — try again later`                 |
+
+---
+
+## Module: `src/logger.ts`
+
+Simple structured logger writing to stderr. No external dependencies.
+
+```typescript
+logger.debug("message", { key: value });
+logger.info("message");
+logger.warn("message", { status: 404 });
+logger.error("message", { error: String(err) });
+```
+
+Output format: `<ISO timestamp> [LEVEL] message {meta}`
+
+---
+
+## Module: `tools/projects.ts`
 
 ### `taiga_list_projects`
 
-Lista todos los proyectos accesibles.
+Lists all accessible projects.
 
-**Inputs:** ninguno
+**Inputs:** none
 
-**Comportamiento:**
-1. Llama `listProjects()`
-2. Retorna lista formateada con `formatProject()` para cada proyecto
-3. Cabecera: `"N proyectos encontrados:\n"`
+**Behaviour:**
+1. Calls `listProjects()`
+2. Returns formatted list with `formatProject()` per project
+3. Header: `"N projects found:\n"`
 
 ---
 
 ### `taiga_get_project`
 
-Obtiene detalles de un proyecto por ID o slug.
+Gets project details by ID or slug.
 
 **Inputs:**
 ```typescript
 {
-  project_id?: z.number().int().positive(),  // ID numérico
-  slug?: z.string(),                          // slug del proyecto
+  project_id?: z.number().int().positive(),
+  slug?: z.string(),
 }
 ```
 
-**Validación:** al menos uno de `project_id` o `slug` debe estar presente.
+**Validation:** at least one of `project_id` or `slug` must be present.
 
-**Comportamiento:**
-1. Si `project_id`: llama `getProject(project_id)`
-2. Si `slug`: llama `getProjectBySlug(slug)`
-3. Retorna `formatProject(proyecto)`
+**Behaviour:**
+1. If `project_id`: calls `getProject(project_id)`
+2. If `slug`: calls `getProjectBySlug(slug)`
+3. Returns `formatProject(project)`
 
 ---
 
 ### `taiga_create_project`
 
-Crea un nuevo proyecto.
+Creates a new project.
 
 **Inputs:**
 ```typescript
@@ -123,15 +175,15 @@ Crea un nuevo proyecto.
 }
 ```
 
-**Comportamiento:**
-1. Llama `createProject(data)`
-2. Retorna `"Proyecto creado:\n" + formatProject(proyecto)`
+**Behaviour:**
+1. Calls `createProject(data)`
+2. Returns `"Project created:\n" + formatProject(project)`
 
 ---
 
 ### `taiga_list_members`
 
-Lista los miembros de un proyecto.
+Lists members of a project.
 
 **Inputs:**
 ```typescript
@@ -140,35 +192,35 @@ Lista los miembros de un proyecto.
 }
 ```
 
-**Comportamiento:**
-1. Llama `listMembers(project_id)`
-2. Retorna tabla con `id`, `username`, `full_name` de cada miembro
+**Behaviour:**
+1. Calls `listMembers(project_id)`
+2. Returns table with `id`, `username`, `full_name` per member
 
 ---
 
-## Módulo: `tools/milestones.ts`
+## Module: `tools/milestones.ts`
 
 ### `taiga_list_milestones`
 
-Lista los sprints de un proyecto.
+Lists sprints of a project.
 
 **Inputs:**
 ```typescript
 {
   project_id: z.number().int().positive(),
-  closed: z.boolean().optional(),  // undefined = todos, true = sólo cerrados, false = sólo abiertos
+  closed: z.boolean().optional(),  // undefined = all, true = closed only, false = open only
 }
 ```
 
-**Comportamiento:**
-1. Llama `listMilestones(project_id, closed)`
-2. Retorna lista formateada con `formatMilestone()`
+**Behaviour:**
+1. Calls `listMilestones(project_id, closed)`
+2. Returns formatted list with `formatMilestone()`
 
 ---
 
 ### `taiga_get_milestone`
 
-Obtiene un sprint por ID.
+Gets a sprint by ID.
 
 **Inputs:**
 ```typescript
@@ -177,15 +229,15 @@ Obtiene un sprint por ID.
 }
 ```
 
-**Comportamiento:**
-1. Llama `getMilestone(milestone_id)`
-2. Retorna `formatMilestone(sprint)` + lista de user stories del sprint
+**Behaviour:**
+1. Calls `getMilestone(milestone_id)`
+2. Returns `formatMilestone(sprint)` + list of sprint user stories
 
 ---
 
 ### `taiga_create_milestone`
 
-Crea un nuevo sprint.
+Creates a new sprint.
 
 **Inputs:**
 ```typescript
@@ -197,17 +249,17 @@ Crea un nuevo sprint.
 }
 ```
 
-**Comportamiento:**
-1. Llama `createMilestone({ project: project_id, name, estimated_start, estimated_finish })`
-2. Retorna `"Sprint creado:\n" + formatMilestone(sprint)`
+**Behaviour:**
+1. Calls `createMilestone({ project: project_id, name, estimated_start, estimated_finish })`
+2. Returns `"Sprint created:\n" + formatMilestone(sprint)`
 
 ---
 
-## Módulo: `tools/userstories.ts`
+## Module: `tools/userstories.ts`
 
 ### `taiga_list_userstories`
 
-Lista user stories con filtros opcionales.
+Lists user stories with optional filters.
 
 **Inputs:**
 ```typescript
@@ -216,19 +268,19 @@ Lista user stories con filtros opcionales.
   milestone_id: z.number().int().positive().optional(),
   assigned_to: z.number().int().positive().optional(),
   status: z.number().int().positive().optional(),
-  tags: z.string().optional(),  // tags separadas por coma
+  tags: z.string().optional(),  // comma-separated tags
 }
 ```
 
-**Comportamiento:**
-1. Llama `listUserStories({ project: project_id, milestone: milestone_id, ... })`
-2. Retorna lista con `formatUserStory()`
+**Behaviour:**
+1. Calls `listUserStories({ project: project_id, milestone: milestone_id, ... })`
+2. Returns list with `formatUserStory()`
 
 ---
 
 ### `taiga_get_userstory`
 
-Obtiene una user story por ID.
+Gets a user story by ID.
 
 **Inputs:**
 ```typescript
@@ -237,15 +289,15 @@ Obtiene una user story por ID.
 }
 ```
 
-**Comportamiento:**
-1. Llama `getUserStory(userstory_id)`
-2. Retorna `formatUserStory(us)` + descripción completa si existe
+**Behaviour:**
+1. Calls `getUserStory(userstory_id)`
+2. Returns `formatUserStory(us)` + full description if present
 
 ---
 
 ### `taiga_create_userstory`
 
-Crea una user story.
+Creates a user story.
 
 **Inputs:**
 ```typescript
@@ -260,21 +312,21 @@ Crea una user story.
 }
 ```
 
-**Comportamiento:**
-1. Llama `createUserStory({ project: project_id, subject, ... })`
-2. Retorna `"User story creada:\n" + formatUserStory(us)`
+**Behaviour:**
+1. Calls `createUserStory({ project: project_id, subject, ... })`
+2. Returns `"User story created:\n" + formatUserStory(us)`
 
 ---
 
 ### `taiga_edit_userstory`
 
-Edita una user story existente. Requiere `version` para control de concurrencia.
+Edits an existing user story. Requires `version` for optimistic concurrency control.
 
 **Inputs:**
 ```typescript
 {
   userstory_id: z.number().int().positive(),
-  version: z.number().int().positive(),  // obtenido del GET previo
+  version: z.number().int().positive(),  // obtained from a prior GET
   subject: z.string().optional(),
   description: z.string().optional(),
   milestone_id: z.number().int().positive().nullable().optional(),
@@ -284,15 +336,15 @@ Edita una user story existente. Requiere `version` para control de concurrencia.
 }
 ```
 
-**Comportamiento:**
-1. Llama `editUserStory(userstory_id, version, data)` con sólo los campos no-undefined
-2. Retorna `"User story actualizada:\n" + formatUserStory(us)`
+**Behaviour:**
+1. Calls `editUserStory(userstory_id, version, data)` with only non-undefined fields
+2. Returns `"User story updated:\n" + formatUserStory(us)`
 
 ---
 
 ### `taiga_delete_userstory`
 
-Elimina una user story.
+Deletes a user story.
 
 **Inputs:**
 ```typescript
@@ -301,13 +353,13 @@ Elimina una user story.
 }
 ```
 
-**Comportamiento:**
-1. Llama `deleteUserStory(userstory_id)`
-2. Retorna `"User story eliminada (id: N)"`
+**Behaviour:**
+1. Calls `deleteUserStory(userstory_id)`
+2. Returns `"User story deleted (id: N)"`
 
 ---
 
-## Módulo: `tools/tasks.ts`
+## Module: `tools/tasks.ts`
 
 ### `taiga_list_tasks`
 
@@ -363,11 +415,11 @@ Elimina una user story.
 
 **Inputs:** `{ task_id: z.number().int().positive() }`
 
-*Comportamientos idénticos al patrón de userstories, adaptando nombres de campos.*
+*Behaviours follow the same pattern as userstories, adapting field names.*
 
 ---
 
-## Módulo: `tools/issues.ts`
+## Module: `tools/issues.ts`
 
 ### `taiga_list_issues`
 
@@ -431,7 +483,7 @@ Elimina una user story.
 
 ---
 
-## Módulo: `tools/epics.ts`
+## Module: `tools/epics.ts`
 
 ### `taiga_list_epics`
 
@@ -472,11 +524,11 @@ Elimina una user story.
 }
 ```
 
-*No hay `delete_epic` en la API de servicio actual — no implementar.*
+*No `delete_epic` in the current service API — do not implement.*
 
 ---
 
-## Módulo: `tools/wiki-search.ts`
+## Module: `tools/wiki-search.ts`
 
 ### `taiga_list_wiki_pages`
 
@@ -493,7 +545,7 @@ Elimina una user story.
 }
 ```
 
-**Validación:** (`page_id`) o (`project_id` + `slug`).
+**Validation:** (`page_id`) or (`project_id` + `slug`).
 
 ### `taiga_create_wiki_page`
 
@@ -501,7 +553,7 @@ Elimina una user story.
 ```typescript
 {
   project_id: z.number().int().positive(),
-  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "Lowercase, numbers and hyphens only"),
   content: z.string(),
 }
 ```
@@ -519,7 +571,7 @@ Elimina una user story.
 
 ### `taiga_search`
 
-Búsqueda global en un proyecto.
+Global text search within a project.
 
 **Inputs:**
 ```typescript
@@ -529,23 +581,23 @@ Búsqueda global en un proyecto.
 }
 ```
 
-**Comportamiento:**
-1. Llama `searchProject(project_id, text)`
-2. Muestra resultados agrupados por tipo (epics, userstories, issues, tasks, wikipages)
-3. Cabecera: `"Búsqueda: N resultados para '<text>'\n"`
-4. Cada sección con su formateador correspondiente
+**Behaviour:**
+1. Calls `searchProject(project_id, text)`
+2. Shows results grouped by type (epics, userstories, issues, tasks, wikipages)
+3. Header: `"Search: N results for '<text>'\n"`
+4. Each section uses its corresponding formatter
 
 ---
 
-## Resumen de tools por módulo
+## Tools summary
 
-| Módulo         | Tools                                                                          | Total |
-|----------------|--------------------------------------------------------------------------------|-------|
-| projects       | list, get, create, list_members                                                | 4     |
-| milestones     | list, get, create                                                              | 3     |
-| userstories    | list, get, create, edit, delete                                                | 5     |
-| tasks          | list, get, create, edit, delete                                                | 5     |
-| issues         | list, get, create, edit, delete                                                | 5     |
-| epics          | list, get, create, edit                                                        | 4     |
-| wiki-search    | list_wiki_pages, get_wiki_page, create_wiki_page, edit_wiki_page, search       | 5     |
-| **Total**      |                                                                                | **31**|
+| Module      | Tools                                                                    | Total |
+|-------------|--------------------------------------------------------------------------|-------|
+| projects    | list, get, create, list_members                                          | 4     |
+| milestones  | list, get, create                                                        | 3     |
+| userstories | list, get, create, edit, delete                                          | 5     |
+| tasks       | list, get, create, edit, delete                                          | 5     |
+| issues      | list, get, create, edit, delete                                          | 5     |
+| epics       | list, get, create, edit                                                  | 4     |
+| wiki-search | list_wiki_pages, get_wiki_page, create_wiki_page, edit_wiki_page, search | 5     |
+| **Total**   |                                                                          | **31**|

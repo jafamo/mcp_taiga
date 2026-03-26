@@ -43,6 +43,7 @@ curl -s -X POST https://<your-instance>/api/v1/auth \
 |--------------------|----------------------------------------------------|------------------------------------------|
 | `TAIGA_URL`        | Base URL of your Taiga instance                    | `https://taiga.mycompany.com`            |
 | `TAIGA_AUTH_TOKEN` | Authentication token obtained in the previous step | `eyJ0eXAiOiJKV1QiLCJhbGci...`           |
+| `LOG_LEVEL`        | Logging verbosity (default: `info`)                | `debug`, `info`, `warn`, `error`, `silent` |
 
 ### Claude Desktop (`~/.config/Claude/claude_desktop_config.json`)
 
@@ -161,6 +162,8 @@ src/
 ├── index.ts          # Entry point and MCP server configuration
 ├── types.ts          # TypeScript interfaces for all Taiga entities
 ├── formats.ts        # Formatting functions for readable responses
+├── logger.ts         # Structured logger (DEBUG/INFO/WARN/ERROR), configurable via LOG_LEVEL
+├── errors.ts         # TaigaApiError class with HTTP status differentiation
 ├── services/
 │   └── taiga.ts      # HTTP client and Taiga API functions
 └── tools/            # One file per entity, each registers its MCP tools

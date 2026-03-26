@@ -1,23 +1,29 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { listMilestones, getMilestone, createMilestone } from "../services/taiga.js";
-import { textResponse, errorResponse, formatMilestone, formatUserStory } from "../formats.js";
+import { textResponse, errorResponse, formatMilestone, formatUserStory, formatPaginationHeader } from "../formats.js";
+import { logger } from "../logger.js";
 
 export function registerMilestoneTools(server: McpServer): void {
   server.tool(
     "taiga_list_milestones",
-    "Lista los sprints de un proyecto",
+    "List sprints in a project",
     {
-      project_id: z.number().int().positive().describe("ID del proyecto"),
-      closed: z.boolean().optional().describe("true = sólo cerrados, false = sólo abiertos, omitir = todos"),
+      project_id: z.number().int().positive().describe("Project ID"),
+      closed: z.boolean().optional().describe("true = closed only, false = open only, omit = all"),
+      page: z.number().int().positive().optional().default(1).describe("Page number (default: 1)"),
+      page_size: z.number().int().positive().max(500).optional().default(100).describe("Results per page (default: 100, max: 500)"),
     },
-    async ({ project_id, closed }) => {
+    async ({ project_id, closed, page, page_size }) => {
+      logger.debug("tool invoked", { tool: "taiga_list_milestones", project_id, closed, page, page_size });
       try {
-        const milestones = await listMilestones(project_id, closed);
-        if (milestones.length === 0) return textResponse("No se encontraron sprints.");
-        const lines = milestones.map(formatMilestone).join("\n\n");
-        return textResponse(`${milestones.length} sprints encontrados:\n\n${lines}`);
+        const result = await listMilestones(project_id, closed, page, page_size);
+        if (result.items.length === 0) return textResponse("No sprints found.");
+        const header = formatPaginationHeader(result, "sprints");
+        const lines = result.items.map(formatMilestone).join("\n\n");
+        return textResponse(`${header}\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_list_milestones", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -25,19 +31,21 @@ export function registerMilestoneTools(server: McpServer): void {
 
   server.tool(
     "taiga_get_milestone",
-    "Obtiene detalles de un sprint por ID, incluyendo sus user stories",
+    "Get details of a sprint by ID, including its user stories",
     {
-      milestone_id: z.number().int().positive().describe("ID del sprint"),
+      milestone_id: z.number().int().positive().describe("Sprint ID"),
     },
     async ({ milestone_id }) => {
+      logger.debug("tool invoked", { tool: "taiga_get_milestone", milestone_id });
       try {
         const milestone = await getMilestone(milestone_id);
         const header = formatMilestone(milestone);
         const stories = milestone.user_stories ?? [];
-        if (stories.length === 0) return textResponse(`${header}\n\nSin user stories.`);
+        if (stories.length === 0) return textResponse(`${header}\n\nNo user stories.`);
         const lines = stories.map(formatUserStory).join("\n\n");
         return textResponse(`${header}\n\n${stories.length} user stories:\n\n${lines}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_get_milestone", error: String(error) });
         return errorResponse(error);
       }
     }
@@ -45,18 +53,20 @@ export function registerMilestoneTools(server: McpServer): void {
 
   server.tool(
     "taiga_create_milestone",
-    "Crea un nuevo sprint en un proyecto",
+    "Create a new sprint in a project",
     {
-      project_id: z.number().int().positive().describe("ID del proyecto"),
-      name: z.string().min(1).describe("Nombre del sprint"),
-      estimated_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD").describe("Fecha de inicio"),
-      estimated_finish: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD").describe("Fecha de fin"),
+      project_id: z.number().int().positive().describe("Project ID"),
+      name: z.string().min(1).describe("Sprint name"),
+      estimated_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD").describe("Start date"),
+      estimated_finish: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD").describe("End date"),
     },
     async ({ project_id, name, estimated_start, estimated_finish }) => {
+      logger.debug("tool invoked", { tool: "taiga_create_milestone", project_id, name });
       try {
         const milestone = await createMilestone({ project: project_id, name, estimated_start, estimated_finish });
-        return textResponse(`Sprint creado:\n\n${formatMilestone(milestone)}`);
+        return textResponse(`Sprint created:\n\n${formatMilestone(milestone)}`);
       } catch (error) {
+        logger.error("tool failed", { tool: "taiga_create_milestone", error: String(error) });
         return errorResponse(error);
       }
     }
